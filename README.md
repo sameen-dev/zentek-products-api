@@ -9,6 +9,82 @@ A .NET 8 Web API for managing a product catalogue, plus a React frontend that co
 - Unit + integration tests
 - [Architecture diagram](docs/architecture.md) showing this service in a distributed, event-driven system alongside Orders/Payments
 
+## Quickstart (for reviewers)
+
+> **Platform note:** the database is SQL Server **LocalDB**, which is **Windows-only**. If you're
+> reviewing from Mac/Linux, you can't run the DB-backed parts locally without swapping the
+> connection string for a containerized SQL Server (not set up in this repo) — but you don't have
+> to take it on faith either: the CI badge at the top of this page is a real `windows-latest`
+> [GitHub Actions run](https://github.com/sameen-dev/zentek-products-api/actions/workflows/ci.yml)
+> that builds, migrates a fresh LocalDB database, and passes all 31 tests on every push.
+
+On Windows, here's the exact path from a fresh clone to a working app in your browser:
+
+1. **Install prerequisites** (skip any you already have):
+   - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (a newer SDK with the 8.0 runtime also works — `dotnet --list-sdks` / `--list-runtimes` to check)
+   - **SQL Server Express LocalDB** — ships with Visual Studio, or grab the standalone [SQL Server Express installer](https://www.microsoft.com/en-us/sql-server/sql-server-downloads) and choose the LocalDB feature. Verify with:
+     ```powershell
+     sqllocaldb info
+     ```
+     You should see `MSSQLLocalDB` listed. If the list is empty, run `sqllocaldb create MSSQLLocalDB` once.
+   - [Node.js 20+](https://nodejs.org/) and npm (for the frontend)
+   - Git
+
+2. **Clone the repo:**
+   ```bash
+   git clone https://github.com/sameen-dev/zentek-products-api.git
+   cd zentek-products-api
+   ```
+
+3. **Trust the local HTTPS dev certificate** (one-time, lets your browser trust `https://localhost:7100`):
+   ```bash
+   dotnet dev-certs https --trust
+   ```
+
+4. **Restore, build, and create the database:**
+   ```bash
+   dotnet restore
+   dotnet build
+   dotnet ef database update --project src/Products.Infrastructure --startup-project src/Products.Api
+   ```
+   That last command applies the EF Core migration and creates `ProductsDb` on your LocalDB
+   instance right now, so you can inspect it in SSMS/Azure Data Studio immediately (server name
+   `(localdb)\MSSQLLocalDB`) even before you run the app. If you skip this step, the API creates it
+   automatically on first run anyway (`ApplyMigrationsOnStartup: true`) — this just lets you see it
+   sooner. If `dotnet ef` isn't found, install the tool once: `dotnet tool install --global dotnet-ef`.
+
+5. **Run the API** (leave this terminal running):
+   ```bash
+   dotnet run --project src/Products.Api
+   ```
+   It listens on `https://localhost:7100` / `http://localhost:5100`. A browser tab opens
+   automatically to Swagger UI (`/swagger`) — try `POST /api/auth/token` with `demo` / `Demo123!`,
+   click **Authorize** (padlock icon) and paste `Bearer <accessToken>`, then try the product
+   endpoints directly from there if you want to test the API in isolation.
+
+6. **Run the tests** (in a second terminal — the API doesn't need to be running for this):
+   ```bash
+   dotnet test
+   ```
+   All 31 tests should pass (19 unit, 12 integration — the integration tests spin up and tear down
+   their own disposable LocalDB database, separate from `ProductsDb`).
+
+7. **Run the frontend** (in a third terminal):
+   ```bash
+   cd frontend/products-ui
+   npm install
+   npm run dev
+   ```
+   Open the printed URL (`http://localhost:5173`), sign in with `demo` / `Demo123!`, create a
+   product, and use the colour filter dropdown to confirm filtering works.
+
+8. **(Optional) See the data land in the DB** — connect SSMS/Azure Data Studio to
+   `(localdb)\MSSQLLocalDB` (Windows Authentication) and run `SELECT * FROM ProductsDb.dbo.Products;`
+   after creating a product through the UI or Swagger.
+
+That's the whole loop — clone → trust cert → restore/build/migrate → run API → run tests → run
+frontend → click through it. Everything below goes into more depth on each of these pieces.
+
 ## Solution layout
 
 ```
