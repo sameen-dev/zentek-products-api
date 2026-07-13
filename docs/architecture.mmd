@@ -1,0 +1,42 @@
+flowchart TB
+    Client["React SPA<br/>(products-ui)"]
+    IdP["Identity / Auth<br/>(issues JWTs)"]
+
+    subgraph Edge["Edge"]
+        Gateway["API Gateway<br/>(routing, TLS, rate limiting)"]
+    end
+
+    subgraph Services["Services (each owns its own data)"]
+        Products["Products API<br/>(this repo)"]
+        Orders["Orders API"]
+        Payments["Payments API"]
+        Notifications["Notifications service"]
+    end
+
+    ProductsDb[("Products DB<br/>SQL Server")]
+    OrdersDb[("Orders DB")]
+    PaymentsDb[("Payments DB")]
+
+    Bus{{"Event Bus<br/>(Kafka / RabbitMQ / Azure Service Bus)"}}
+
+    Client -- "HTTPS + JWT" --> Gateway
+    Gateway -- "REST" --> Products
+    Gateway -- "REST" --> Orders
+    Gateway -- "REST" --> Payments
+    Client -. "obtain token" .-> IdP
+    Gateway -. "validate token" .-> IdP
+
+    Products --- ProductsDb
+    Orders --- OrdersDb
+    Payments --- PaymentsDb
+
+    Orders -- "GET /api/products/{id}<br/>(validate product & price)" --> Products
+
+    Products -- "publishes<br/>ProductCreated / ProductPriceChanged" --> Bus
+    Orders -- "publishes<br/>OrderPlaced / OrderCancelled" --> Bus
+    Payments -- "publishes<br/>PaymentSucceeded / PaymentFailed" --> Bus
+
+    Bus -- "OrderPlaced" --> Payments
+    Bus -- "PaymentSucceeded / PaymentFailed" --> Orders
+    Bus -- "ProductPriceChanged" --> Orders
+    Bus -- "OrderPlaced / PaymentSucceeded" --> Notifications

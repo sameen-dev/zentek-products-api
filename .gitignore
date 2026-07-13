@@ -1,0 +1,22 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+
+## Rider / VS
+.vs/
+.idea/
+*.dotCover
+
+## Node / frontend
+node_modules/
+frontend/products-ui/dist/
+npm-debug.log*
+
+## EF Core
+*.db
+
+## OS
+.DS_Store
+Thumbs.db
